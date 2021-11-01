@@ -1,0 +1,215 @@
+---
+title: "Tutorial on Lubridate"
+author: "Abhipsha Mahapatro and Dijana Majstorovic"
+output:
+  html_document:
+    df_print: paged
+    highlight: tango
+    number_sections: no
+    theme: cosmo
+    toc: no
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r Load Libraries}
+library(tidyverse)
+library(nycflights13)
+library(lubridate)
+```
+## Introducing the Lubdridate package 
+
+A package in the tidyverse, Lubridate lets us work with date-times, time spans, parsing of date-time data and updating components of date-time in years, months, days, minutes and seconds. 
+In this tutorial we will look at the following things: 
+1) Creating date & datetime objects 
+2) Time spans (durations, periods, intervals)
+
+
+We would like to credit some of this tutorial's code adaption to github.com/RichardOnData and Chapter 16 of the book "R for Data Science" by Hadley Wickham and Garrett Grolemund. 
+
+
+## Creating date-time objects 
+
+The two most important fucntions to be aware of in the lubridate package are 'today()' and 'now()' both of which give us results in date and date-time format respectively. We will udnerstand what the difference between these two formats is by running these commands. 
+
+```{r Today Function, echo=FALSE}
+day <- today()
+str(day)
+```
+
+The function gives us the current date and is an object of class "Date". 
+
+Now, let's see the date-time function. 
+```{r Now Function, echo=FALSE}
+datetime <- now()
+str(datetime)
+```
+
+The now function gives us the current date and time, but is an object of class "POSIXct", which is one of the most common classes for objects in R. 
+
+Normally to operate the datetime object we would have to run the function, as.POSIXct, but with lubridate, we have functions like as_date and as_datetime that make the coding process a lot more simpler and convenient. And they yield the same results. Let us have a look. 
+
+```{r As Date Function, echo=FALSE}
+#creating characters
+string1 <- "2021-10-30"
+string2 <- "2021-10-30 22:00:00"
+str(string1)
+str(string2)
+
+#converting strings to dates and datetimes 
+date1 <-as_date(string1)
+date2 <-as.Date(string1)
+datetime1 <- as_datetime (string2)
+datetime2 <-as.POSIXct(string2)
+str(date1)
+str(datetime1)
+str(date2)
+str(datetime2)
+```
+There are ways we are likely to create a date/time: 
+- From a string 
+- From individual date-time components 
+
+## String: 
+Data/time data is in strings, which are a bunch of character variables. Lubridate functions automatically work out the format once you specify the order of the component. We put "y" for year, "m" for month and "d" for the day in the order that we want R to compute it. For example: 
+
+```{r, echo=FALSE}
+ydm("2021-31-10") 
+mdy("October 31st, 2021")
+dmy("31-October-2021")
+
+#These functions also take unquoted numbers for ymd()
+ymd(20211031)
+```
+To create a date-time with the ymd functions, we add an underscore and "hms" with "h" for hours, "m" for minutes and "s" for seconds. 
+```{r, echo=FALSE}
+ymd_hms("2021-10-31 10:30:21")
+mdy_hm("10-31-2021 10:30")
+
+#you can also create a date-time, by supplying a timezone 
+
+ymd(20211031, tz= "CET")
+```
+
+## From Individual Components: 
+Instead of a single string, sometimes the individual components of the date-time format can be spread across multiple columns. Let's look at some of Lubridate's helper functions and then see an example where we can use it. 
+
+```{r Helper functions}
+todayDate <- "2021-11-4 10:30:00"
+year(todayDate) #tells us the year 
+month(todayDate) #tells us the month
+mday(todayDate) #tells us the day of the month 
+hour(todayDate) #tells us the hour 
+minute(todayDate) #tells us the minute 
+second(todayDate) #tells us the second 
+yday(todayDate) #tells the day of the year 
+wday(todayDate) #tells uf the day of the week 
+
+#if you want the names of the month, or day of the week, just 'label=TRUE' to the above commands. For example: 
+month(todayDate, label=TRUE)
+wday(todayDate, label=TRUE)
+```
+
+Let us look at how we would use this in real world data. We use the NYC flights package for this. 
+```{r NYC Flights Package}
+flights %>%
+  select(year, month, day, hour, minute)
+
+```
+
+For this kind of input, Lubridate has functions such as make_date() and make_datetime() for date and date-time respectively. 
+
+```{r}
+flights %>%
+  select(year, month, day, hour, minute) %>% 
+  mutate(arrival=make_datetime(year, month, day, hour, minute))
+
+#lets see how Lubridate helpers will help with data visualisations 
+
+data <- flights %>% 
+  dplyr::select(flight, carrier, time_hour)
+data
+```
+
+```{r}
+#create r bar plot 
+data %>% 
+  mutate(month=month(time_hour, label=TRUE)) %>% 
+  ggplot() +
+  geom_bar(aes(x=month), fill="yellow", color= "blue")
+
+
+```
+
+```{r}
+#creating a line plot for flights by hour of the day 
+data %>% 
+  mutate(hour= hour(time_hour)) %>% 
+  group_by(hour) %>% 
+  tally() %>% 
+  ggplot() +
+  geom_line(aes(x=hour,y=n)) + 
+  scale_x_continuous(breaks=seq(0,24,4))
+
+```
+
+## Time spans 
+
+1. Durations: exact number of seconds 
+In 4, a difftime object is created when you subtract two dates. For example:
+```{r}
+#How old is Kermit The Frog? 
+kermit_age <- today() - ymd(19550509)
+kermit_age
+```
+This result is given to us in days. We can use lubridate function 'as.duration' to make this a bit more uniform in format. 
+```{r}
+as.duration(kermit_age)
+```
+Durations make it easy to add durations of time to existing datetimes.   They come with a variety of helper functions such as `dseconds()`, `dminutes()`, `dhours()`, `ddays()`, `dweeks()`, `dmonths()`, and `dyears()`. 
+
+We can add, subtract and multiply durations: 
+```{r}
+tomorrow <- today() + ddays(1)
+tomorrow
+last_year <- today() - dyears(1)
+last_year
+```
+2. Periods: Units like weeks and months 
+R is super sensitive to Daylight Savings. To solve, the lubridate package provides 'periods', which are time that don't work in seconds and instead on day-to-day understanding of time. Periods can be created with: 
+
+```{r}
+seconds(10)
+minutes(10)
+hours(c(12, 24))
+days(7)
+months(2)
+weeks(4)
+years(5)
+```
+We can add and multiply periods and add them to dates. Periods are easier to work with than durations. 
+```{r}
+#multiply periods 
+12*(months(7) + days(4))
+#add periods
+days(50) + hours (14)
+
+```
+3. Intervals: Starting and ending point 
+
+Defining a starting and ending point is important for to be able to compute dates with lubridate. To have accurate measurements of years, we use intervals, which is a duration with a precise starting point so that we can compute exactly how long it is.
+
+```{r}
+year <- today() + years(2)
+(today()%--% year/ddays(1))
+```
+## Summary 
+Lubridate makes our life very easy when computing with dates. It is imperative to keep in mind which kind of date-time format will suit the work we are doing best. It is also important to note that Lubridate is very sensitive with Daylight Savings, and here is a resource to know more about handling that if you are interested: https://r4ds.had.co.nz/dates-and-times.html#time-spans 
+
+Here is another resource which is helpful for taking a look at how to use Lubridate while web scraping and dealing with dates that are in formats other than the ones R can compute: https://www.brodrigues.co/blog/2018-12-15-lubridate_africa/
+
+With this we come to the end of this workshop. We hope you found it useful. 
